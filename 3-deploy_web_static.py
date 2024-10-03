@@ -5,7 +5,7 @@ from fabric.context_managers import cd
 from fabric.api import env, put, sudo, local
 from os.path import join, exists, splitext
 
-env.hosts = ["54.242.215.110", "34.229.154.33"]
+env.hosts = ["54.89.197.58", "34.229.11.29"]
 
 
 def do_pack():

@@ -1,15 +1,15 @@
 #!/usr/bin/python3
 """Deploy web static to different servers"""
 import re
-from fabric.context_managers import cd
-from fabric.api import env, put, run, sudo
+from fabric import Connection
 from os.path import join, exists, splitext
 
+env_hosts = ["54.89.197.58", "34.229.11.29"]
+user = "ubuntu"
+key_filename = '~/.ssh/id_rsa'
 
-env.user = "ubuntu"
-env.hosts = ["54.89.197.58", "34.229.11.29"]
-env.key_filename = '~/.ssh/id_rsa'
-
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 def do_deploy(archive_path):
     """
@@ -23,24 +23,30 @@ def do_deploy(archive_path):
     if not exists(archive_path):
         return False
 
-    try:
-        put(archive_path, "/tmp/")
-        file_name = re.search(r'[^/]+$', archive_path).group(0)
-        deploy_path = join("/data/web_static/releases/",
-                           splitext(file_name)[0])
-        sudo("mkdir -p {}".format(deploy_path))
+    for host in env_hosts:
+        try:
+            conn = Connection(
+                host=host, user=user, connect_kwargs={"key_filename": key_filename}
+            )
+            conn.put(archive_path, "/tmp/")
+            file_name = re.search(r'[^/]+$', archive_path).group(0)
+            deploy_path = join("/data/web_static/releases/",
+                               splitext(file_name)[0])
+            conn.sudo("mkdir -p {}".format(deploy_path))
 
-        sudo("tar -xzf /tmp/{} -C {}".format(file_name, deploy_path))
+            conn.sudo("tar -xzf /tmp/{} -C {}".format(file_name, deploy_path))
 
-        with cd(deploy_path):
-            sudo("mv web_static/* .")
-            sudo("rm -rf web_static")
+            with conn.cd(deploy_path):
+                conn.sudo("mv hbnb_static/* .")  # Update to hbnb_static
+                conn.sudo("rm -rf hbnb_static")   # Update to hbnb_static
 
-        sudo("rm /tmp/{}".format(file_name))
-        sudo("rm -rf /data/web_static/current")
+            conn.sudo("rm /tmp/{}".format(file_name))
+            conn.sudo("rm -rf /data/hbnb_static/current")
 
-        sudo('ln -sf {} /data/web_static/current'.format(deploy_path))
-    except Exception as err:
-        return False
+            conn.sudo('ln -sf {} /data/hbnb_static/current'.format(deploy_path))
+
+        except Exception as err:
+            print(f"Deployment failed on {host}: {err}")
+            return False
 
     return True
