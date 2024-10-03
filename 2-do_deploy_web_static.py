@@ -1,29 +1,46 @@
 #!/usr/bin/python3
-"""web server distribution"""
-from fabric.api import *
-import os.path
+"""Deploy web static to different servers"""
+import re
+from fabric.context_managers import cd
+from fabric.api import env, put, run, sudo
+from os.path import join, exists, splitext
 
-env.user = 'ubuntu'
-env.hosts = ["54.89.197.58", "	34.229.11.29"]
-env.key_filename = "~/id_rsa"
+
+env.user = "ubuntu"
+env.hosts = ["54.89.197.58", "34.229.11.29"]
+env.key_filename = '~/.ssh/id_rsa'
 
 
 def do_deploy(archive_path):
-    """distributes an archive to your web servers
     """
-    if os.path.exists(archive_path) is False:
+    Deploy a compressed archive to a remote server.
+    Args:
+        archive_path (str): The path to the compressed archive.
+    Returns:
+        bool: True if the deployment is successful, False otherwise.
+    """
+
+    if not exists(archive_path):
         return False
+
     try:
-        arc = archive_path.split("/")
-        base = arc[1].strip('.tgz')
-        put(archive_path, '/tmp/')
-        sudo('mkdir -p /data/web_static/releases/{}'.format(base))
-        main = "/data/web_static/releases/{}".format(base)
-        sudo('tar -xzf /tmp/{} -C {}/'.format(arc[1], main))
-        sudo('rm /tmp/{}'.format(arc[1]))
-        sudo('mv {}/web_static/* {}/'.format(main, main))
-        sudo('rm -rf /data/web_static/current')
-        sudo('ln -s {}/ "/data/web_static/current"'.format(main))
-        return True
-    except:
+        put(archive_path, "/tmp/")
+        file_name = re.search(r'[^/]+$', archive_path).group(0)
+        deploy_path = join("/data/web_static/releases/",
+                           splitext(file_name)[0])
+        sudo("mkdir -p {}".format(deploy_path))
+
+        sudo("tar -xzf /tmp/{} -C {}".format(file_name, deploy_path))
+
+        with cd(deploy_path):
+            sudo("mv web_static/* .")
+            sudo("rm -rf web_static")
+
+        sudo("rm /tmp/{}".format(file_name))
+        sudo("rm -rf /data/web_static/current")
+
+        sudo('ln -sf {} /data/web_static/current'.format(deploy_path))
+    except Exception as err:
         return False
+
+    return True
