@@ -11,6 +11,7 @@ env.hosts = ["54.89.197.58", "34.229.11.29"]
 env.key_filename = '~/.ssh/id_rsa'
 
 
+
 def do_deploy(archive_path):
     """
     Deploy a compressed archive to a remote server.
